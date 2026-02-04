@@ -1,0 +1,121 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Category {
+  id   String  @id @default(cuid())
+  name String
+  slug String? @unique
+
+  attributes AttributeDefinition[] // 👈 ADD THIS LINE
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  subcategories Subcategory[]
+
+  @@index([slug])
+}
+
+model Subcategory {
+  id              String           @id @default(cuid())
+  name            String
+  slug            String?          @unique
+  categoryId      String
+  category        Category         @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  productVariants ProductVariant[]
+
+  @@index([categoryId])
+  @@index([slug])
+}
+
+model AttributeDefinition {
+  id               String  @id
+  categoryId       String
+  name             String
+  key              String  @unique
+  dataType         String // "string" | "number" | "boolean" | "enum"
+  required         Boolean @default(false)
+  analyticsEnabled Boolean @default(false)
+  enumValues       Json?
+
+  category Category @relation(fields: [categoryId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ProductVariant {
+  id            String       @id
+  categoryId    String
+  subcategoryId String?
+  subcategory   Subcategory? @relation(fields: [subcategoryId], references: [id], onDelete: SetNull)
+
+  attributes_json Json
+
+  mrp                   Float
+  default_selling_price Float
+  max_discount_percent  Float
+
+  imageUrl String?
+
+  products Product[] // ADD THIS (opposite of Product.productVariant)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([categoryId])
+  @@index([subcategoryId])
+}
+
+model Supplier {
+  id        String    @id @default(cuid())
+  name      String
+  code      String?   @unique
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  products  Product[]
+
+  @@index([code])
+}
+
+model Product {
+  id               String         @id @default(cuid())
+  sku              String         @unique
+  productVariantId String
+  productVariant   ProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Cascade)
+  supplierId       String
+  supplier         Supplier       @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  name             String?
+  price            Decimal?       @db.Decimal(12, 2)
+  cost             Decimal?       @db.Decimal(12, 2)
+  quantityInStock  Int            @default(0)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  sales            Sale[]
+
+  @@index([productVariantId])
+  @@index([supplierId])
+  @@index([sku])
+}
+
+model Sale {
+  id          String   @id @default(cuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  quantity    Int
+  unitPrice   Decimal? @db.Decimal(12, 2)
+  totalAmount Decimal? @db.Decimal(12, 2)
+  soldAt      DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([productId])
+  @@index([soldAt])
+}
