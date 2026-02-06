@@ -45,3 +45,18 @@ export async function getSuppliers(req, res) {
   res.json(suppliers);
 }
 
+export async function getProductVariants(req, res) {
+  const variants = await prisma.productVariant.findMany({
+    orderBy: { id: 'asc' },
+    include: {
+      products: { take: 1, select: { sku: true } },
+      category: { select: { name: true } },
+    },
+  });
+  const list = variants.map((v) => ({
+    id: v.id,
+    label: v.products?.[0]?.sku ?? v.category?.name ?? v.id,
+  }));
+  res.json(list);
+}
+
