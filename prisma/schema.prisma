@@ -12,7 +12,8 @@ model Category {
   name String
   slug String? @unique
 
-  attributes AttributeDefinition[] // 👈 ADD THIS LINE
+  attributes      AttributeDefinition[]
+  productVariants ProductVariant[]
 
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
@@ -54,6 +55,7 @@ model AttributeDefinition {
 model ProductVariant {
   id            String       @id
   categoryId    String
+  category      Category     @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   subcategoryId String?
   subcategory   Subcategory? @relation(fields: [subcategoryId], references: [id], onDelete: SetNull)
 
@@ -65,57 +67,124 @@ model ProductVariant {
 
   imageUrl String?
 
-  products Product[] // ADD THIS (opposite of Product.productVariant)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  products      Product[]
+  purchaseItems PurchaseItem[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 
   @@index([categoryId])
   @@index([subcategoryId])
 }
 
 model Supplier {
-  id        String    @id @default(cuid())
+  id        String     @id @default(cuid())
   name      String
-  code      String?   @unique
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  code      String?    @unique
+  purchases Purchase[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
   products  Product[]
 
   @@index([code])
 }
 
 model Product {
-  id               String         @id @default(cuid())
-  sku              String         @unique
+  id               String @id @default(cuid())
+  sku              String @unique
   productVariantId String
-  productVariant   ProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Cascade)
   supplierId       String
-  supplier         Supplier       @relation(fields: [supplierId], references: [id], onDelete: Restrict)
-  name             String?
-  price            Decimal?       @db.Decimal(12, 2)
-  cost             Decimal?       @db.Decimal(12, 2)
-  quantityInStock  Int            @default(0)
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
-  sales            Sale[]
+  quantityInStock  Int    @default(0)
 
-  @@index([productVariantId])
-  @@index([supplierId])
-  @@index([sku])
+  productVariant ProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Cascade)
+  supplier       Supplier       @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  saleItems      SaleItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Sale {
   id          String   @id @default(cuid())
-  productId   String
-  product     Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
-  quantity    Int
-  unitPrice   Decimal? @db.Decimal(12, 2)
-  totalAmount Decimal? @db.Decimal(12, 2)
+  billNumber  String   @unique
+  totalAmount Decimal  @db.Decimal(12, 2)
   soldAt      DateTime @default(now())
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
 
+  items    SaleItem[]
+  payments Payment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SaleItem {
+  id        String @id @default(cuid())
+  saleId    String
+  productId String
+
+  quantity  Int
+  unitPrice Decimal @db.Decimal(12, 2)
+  lineTotal Decimal @db.Decimal(12, 2)
+
+  sale    Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@index([saleId])
   @@index([productId])
-  @@index([soldAt])
+}
+
+model Payment {
+  id     String @id @default(cuid())
+  saleId String
+
+  mode      String // CASH | CARD | UPI
+  provider  String? // GPay | PhonePe | Paytm
+  amount    Decimal @db.Decimal(12, 2)
+  reference String?
+
+  sale Sale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([saleId])
+}
+
+model Purchase {
+  id String @id @default(cuid())
+
+  supplierId String
+  supplier   Supplier @relation(fields: [supplierId], references: [id])
+
+  invoiceNo   String? // supplier invoice / challan number
+  purchasedAt DateTime @default(now())
+
+  extraCharges Decimal? @db.Decimal(12, 2)
+  notes        String?
+
+  items PurchaseItem[]
+
+  createdAt DateTime @default(now())
+
+  @@index([supplierId])
+  @@index([purchasedAt])
+}
+
+model PurchaseItem {
+  id String @id @default(cuid())
+
+  purchaseId String
+  purchase   Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+
+  productVariantId String
+  productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
+
+  quantity          Int
+  unitCost          Decimal @db.Decimal(12, 2)
+  effectiveUnitCost Decimal @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+
+  @@index([productVariantId])
+  @@index([purchaseId])
 }

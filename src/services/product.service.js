@@ -2,6 +2,21 @@ import { randomUUID } from 'crypto';
 import prisma from '../lib/prisma.js';
 
 /**
+ * Get product by SKU with variant and supplier.
+ * Returns null if not found.
+ */
+export async function getProductBySku(sku) {
+  if (!sku || typeof sku !== 'string') return null;
+  return prisma.product.findUnique({
+    where: { sku: sku.trim() },
+    include: {
+      productVariant: true,
+      supplier: true,
+    },
+  });
+}
+
+/**
  * Build SKU prefix from category slug (or fallback).
  */
 function skuPrefix(category) {
